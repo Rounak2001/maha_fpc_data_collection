@@ -1,6 +1,3 @@
-
-
-
 {% extends "data_collection/templates/base.html" %}
 {% load static %}
 
@@ -26,32 +23,12 @@
                             </h5>
                             
                             <div class="mb-3">
-                                <label for="districtSelect" class="form-label">District</label>
+                                <label for="district" class="form-label">District</label>
                                 <div class="input-group">
                                     <span class="input-group-text">
                                         <i data-lucide="map" size="18"></i>
                                     </span>
-                                    <select id="districtSelect" name="district" class="form-select">
-                                        <option value="">Loading districts...</option>
-                                    </select>
-                                </div>
-                                <div id="districtLoading" class="text-muted mt-1 small" style="display: none;">
-                                    <span class="spinner-border spinner-border-sm"></span> Loading districts...
-                                </div>
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="blockSelect" class="form-label">Block</label>
-                                <div class="input-group">
-                                    <span class="input-group-text">
-                                        <i data-lucide="map-pin" size="18"></i>
-                                    </span>
-                                    <select id="blockSelect" name="block_id" class="form-select" disabled>
-                                        <option value="">-- Select Block --</option>
-                                    </select>
-                                </div>
-                                <div id="blockLoading" class="text-muted mt-1 small" style="display: none;">
-                                    <span class="spinner-border spinner-border-sm"></span> Loading blocks...
+                                    <input type="text" id="district" name="district" class="form-control" required>
                                 </div>
                             </div>
 
@@ -90,9 +67,9 @@
                                     <label class="form-label">First Name</label>
                                     <div class="input-group">
                                         <span class="input-group-text">
-                                            <i data-lucide="user" size="14"></i>
+                                            <i data-lucide="user" size="18"></i>
                                         </span>
-                                        {{ form.first_name }}
+                                        <input type="text" id="first_name" name="first_name" class="form-control" required>
                                     </div>
                                 </div>
 
@@ -100,9 +77,9 @@
                                     <label class="form-label">Last Name</label>
                                     <div class="input-group">
                                         <span class="input-group-text">
-                                            <i data-lucide="user" size="14"></i>
+                                            <i data-lucide="user" size="18"></i>
                                         </span>
-                                        {{ form.last_name }}
+                                        <input type="text" id="last_name" name="last_name" class="form-control" required>
                                     </div>
                                 </div>
                             </div>
@@ -113,7 +90,7 @@
                                     <span class="input-group-text">
                                         <i data-lucide="phone" size="14"></i>
                                     </span>
-                                    {{ form.mobile_number }}
+                                    <input type="text" id="mobile_number" name="mobile_number" class="form-control" required>
                                 </div>
                                 {% if form.mobile_number.errors %}
                                     <div class="text-danger mt-1">
@@ -127,23 +104,22 @@
                                     <label class="form-label">Gender</label>
                                     <div class="input-group">
                                         <span class="input-group-text">
-                                            <i data-lucide="users" size="14"></i>
+                                            <i data-lucide="users" size="18"></i>
                                         </span>
-                                        {{ form.gender }}
+                                        <select id="gender" name="gender" class="form-select" required>
+                                            <option value="Male">Male</option>
+                                            <option value="Female">Female</option>
+                                            <option value="Other">Other</option>
+                                        </select>
                                     </div>
                                 </div>
 
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label">Guardian Name</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text">
-                                            <i data-lucide="user-check" size="14"></i>
-                                        </span>
-                                        {{ form.guardian_name }}
-                                    </div>
-                                </div>
+
                             </div>
                         </div>
+                        
+                       
+                        
 
                         <!-- Hidden Fields for GeoLocation -->
                         <input type="hidden" name="latitude" id="latitude">
@@ -195,453 +171,479 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/idb/7.1.1/idb.min.js"></script>
 
 <script>
-document.addEventListener("DOMContentLoaded", function() {
-    // Initialize Lucide icons
-    lucide.createIcons();
-    
-    // Show map loading indicator
-    document.getElementById("map-loading").style.display = "flex";
-    
-    // Base map layers
-    var streets = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors',
-        maxZoom: 22  // ✅ Allow max zoom
-    });
 
-    var satellite = L.tileLayer('/tiles/s/{z}/{x}/{y}', {
-        attribution: '&copy; Google Satellite',
-        maxZoom: 22
-    });
-    
-    var terrain = L.tileLayer('/tiles/p/{z}/{x}/{y}', {
-        attribution: '&copy; Google Terrain',
-        maxZoom: 22
-    });
-    
-    var hybrid = L.tileLayer('/tiles/y/{z}/{x}/{y}', {
-        attribution: '&copy; Google Hybrid',
-        maxZoom: 22
-    });
-
-    var esri = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-        attribution: '&copy; Esri World Imagery',
-        maxZoom: 22
-    });
-
-    // Overlay for Place Names & Boundaries
-    var esriLabels = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
-        attribution: '&copy; Esri, HERE, Garmin',
-        maxZoom: 22
-    });
-    
-    var esriClarity = L.tileLayer(
-        'https://clarity.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-        attribution: '&copy; Esri, Maxar, Earthstar Geographics',
-        maxZoom: 22  // ✅ Allows deeper zoom levels
-    });       
-
-    var map = L.map('map', {
-        center: [23.6157, 81.9195], 
-        zoom: 15,
-        maxZoom: 22,  
-        layers: hybrid  
-    });
-
-    // Hide loading indicator once map loads
-    map.whenReady(function() {
-        document.getElementById("map-loading").style.display = "none";
-    });
-
-    // Layer control to switch between different maps
-    var baseMaps = {
-        "Streets": streets,
-        "Google Satellite": satellite,
-        "Google Terrain": terrain,
-        "Google Hybrid": hybrid,
-        "Esri World Imagery": esri,
-        "Esri Clarity": esriClarity
-    };
-
-    var overlayMaps = {
-        "Place Names & Boundaries": esriLabels
-    };
-
-    L.control.layers(baseMaps, overlayMaps).addTo(map);
-
-    // Custom control for "Locate Me" button with modern styling
-    L.Control.Locate = L.Control.extend({
-        onAdd: function(map) {
-            var button = L.DomUtil.create('button', 'leaflet-bar leaflet-control leaflet-control-custom');
-            button.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="1"/><line x1="12" y1="8" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="16"/><line x1="8" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="16" y2="12"/></svg>';
-            button.style.backgroundColor = 'white';
-            button.style.width = '34px';
-            button.style.height = '34px';
-            button.style.border = 'none';
-            button.style.borderRadius = '4px';
-            button.style.cursor = 'pointer';
-            button.style.boxShadow = '0 2px 6px rgba(0,0,0,0.3)';
-            button.style.display = 'flex';
-            button.style.alignItems = 'center';
-            button.style.justifyContent = 'center';
-            button.title = "Find my location";
-
-            // Hover effect
-            button.onmouseover = function() {
-                this.style.backgroundColor = '#f8f9fa';
-            };
-            button.onmouseout = function() {
-                this.style.backgroundColor = 'white';
-            };
-
-            // Click event to find user location
-            button.onclick = function() {
-                // Show loading indicator on button
-                const originalHTML = this.innerHTML;
-                this.innerHTML = '<div class="spinner-border spinner-border-sm text-primary" role="status"><span class="visually-hidden">Loading...</span></div>';
-                this.disabled = true;
-                
-                if (navigator.geolocation) {
-                    navigator.geolocation.getCurrentPosition(
-                        function(position) {
-                            var lat = position.coords.latitude;
-                            var lng = position.coords.longitude;
-                            
-                            map.setView([lat, lng], 16);
-
-                            // Remove old marker before adding new one
-                            if (window.marker) {
-                                map.removeLayer(window.marker);
-                            }
-
-                            // Custom marker with pulse effect
-                            var pulseIcon = L.divIcon({
-                                className: 'pulse-icon',
-                                html: '<div class="pulse-inner"></div>',
-                                iconSize: [20, 20]
-                            });
-
-                            window.marker = L.marker([lat, lng], {
-                                icon: L.divIcon({
-                                    className: 'my-custom-pin',
-                                    html: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="#1e6f5c" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>',
-                                    iconSize: [40, 40],
-                                    iconAnchor: [12, 24],
-                                    popupAnchor: [0, -20]
-                                })
-                            }).addTo(map)
-                                .bindPopup("<b>Your Current Location</b>").openPopup();
-
-                            document.getElementById("latitude").value = lat;
-                            document.getElementById("longitude").value = lng;
-                            
-                            // Fetch village & pincode based on selected location
-                            fetchLocationDetails(lat, lng);
-                            
-                            // Reset button
-                            button.innerHTML = originalHTML;
-                            button.disabled = false;
-                        },
-                        function(error) {
-                            // Reset button first
-                            button.innerHTML = originalHTML;
-                            button.disabled = false;
-                            
-                            // Show error with custom styling
-                            let errorMsg = "Failed to get location. ";
-                            switch (error.code) {
-                                case error.PERMISSION_DENIED:
-                                    errorMsg += "Please enable location services.";
-                                    break;
-                                case error.POSITION_UNAVAILABLE:
-                                    errorMsg += "Location information is unavailable.";
-                                    break;
-                                case error.TIMEOUT:
-                                    errorMsg += "Location request timed out.";
-                                    break;
-                                default:
-                                    errorMsg += "An unknown error occurred.";
-                            }
-                            
-                            const errorToast = document.createElement('div');
-                            errorToast.className = 'alert alert-danger position-fixed bottom-0 start-50 translate-middle-x mb-4 shadow';
-                            errorToast.style.zIndex = 2000;
-                            errorToast.style.maxWidth = '90%';
-                            errorToast.style.width = '400px';
-                            errorToast.innerHTML = `<div class="d-flex align-items-center"><i data-lucide="alert-circle" class="me-2"></i> ${errorMsg}</div>`;
-                            document.body.appendChild(errorToast);
-                            
-                            // Initialize icon in the error message
-                            lucide.createIcons();
-                            
-                            // Remove after 5 seconds
-                            setTimeout(() => {
-                                errorToast.remove();
-                            }, 5000);
-                        },
-                        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-                    );
-                } else {
-                    alert("Geolocation is not supported by your browser.");
-                    button.innerHTML = originalHTML;
-                    button.disabled = false;
-                }
-            };
-
-            return button;
-        },
-
-        onRemove: function(map) {
-            // Nothing needed here
+    document.addEventListener("DOMContentLoaded", function() {
+        // Initialize Lucide icons if available
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
         }
-    });
+        
 
-    // Add Locate Me button to the map
-    L.control.locate = function(opts) {
-        return new L.Control.Locate(opts);
-    };
-
-    L.control.locate({ position: 'topright' }).addTo(map);
-
-    window.marker = null;
-    console.log("Map initialized");
-    
-    // Function to fetch village and pincode using Nominatim API
-    function fetchLocationDetails(lat, lng) {
-        const nominatimURL = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`;
-    
-        fetch(nominatimURL)
-            .then(response => response.json())
-            .then(data => {
-                console.log("Nominatim API Response:", data);
-    
-                // Extract village and pincode from response
-                const village = data.address.village || data.address.town || data.address.hamlet || "";
-                const pincode = data.address.postcode || "";
-    
-                // Update the form fields
-                document.getElementById("village").value = village;
-                document.getElementById("pincode").value = pincode;
-            })
-            .catch(error => {
-                console.error("Error fetching location details:", error);
-                alert("Failed to get village and pincode. Please enter manually.");
+        
+        // Show map loading indicator
+        const mapLoadingIndicator = document.getElementById("map-loading");
+        if (mapLoadingIndicator) {
+            mapLoadingIndicator.style.display = "flex";
+        }
+        
+        // Initialize the map
+        let map;
+        let marker = null;
+        
+        try {
+            // Base map layers
+            const streets = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors',
+                maxZoom: 22
             });
-    }
-    // Detect if user is on mobile
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-
-    // Adjust geolocation options based on device
-    const geoOptions = {
-        enableHighAccuracy: !isMobile, // Use high accuracy only on desktop
-        timeout: isMobile ? 20000 : 10000, // Longer timeout for mobile
-        maximumAge: isMobile ? 60000 : 0 // Allow cached positions on mobile
-    };
-
-    // Show loading indicator
-    function showLoading() {
-        // Create or show loading element
-        const loadingEl = document.getElementById('location-loading') || 
-                        document.createElement('div');
-        loadingEl.id = 'location-loading';
-        loadingEl.textContent = 'Fetching your location...';
-        loadingEl.style.cssText = 'position:absolute;top:10px;right:10px;background:white;padding:10px;border-radius:4px;z-index:1000;';
-        document.body.appendChild(loadingEl);
-    }
-
-    function hideLoading() {
-        const loadingEl = document.getElementById('location-loading');
-        if (loadingEl) loadingEl.style.display = 'none';
-    }
-    // Get user's current location
-    if (navigator.geolocation) {
-        console.log("Requesting geolocation...");
-        navigator.geolocation.getCurrentPosition(
-            function (position) {
-                console.log("Geolocation success:", position.coords.latitude, position.coords.longitude);
-                var lat = position.coords.latitude;
-                var lng = position.coords.longitude;
     
-                map.setView([lat, lng], 14);
+            const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: '&copy; Esri, Maxar, Earthstar Geographics',
+                maxZoom: 22
+            });
+            
+            // Initialize map with India as default center
+            map = L.map('map', {
+                center: [20.5937, 78.9629],
+                zoom: 5,
+                layers: [satellite]
+            });
     
-                // Remove old marker before adding new one
-                if (window.marker) {
-                    map.removeLayer(window.marker);
+            // Layer control
+            const baseMaps = {
+                "Streets": streets,
+                "Satellite": satellite
+            };
+    
+            L.control.layers(baseMaps).addTo(map);
+            
+            // Hide loading indicator once map loads
+            map.whenReady(function() {
+                if (mapLoadingIndicator) {
+                    mapLoadingIndicator.style.display = "none";
                 }
+            });
     
-                window.marker = L.marker([lat, lng]).addTo(map)
-                    .bindPopup("Your Current Location").openPopup();
-    
+            // Custom "Locate Me" button
+            class LocateControl extends L.Control {
+                onAdd(map) {
+                    const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+                    const button = L.DomUtil.create('a', 'locate-button', container);
+                    button.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="1"/><line x1="12" y1="8" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="16"/><line x1="8" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="16" y2="12"/></svg>';
+                    button.href = '#';
+                    button.title = 'Find my location';
+                    button.style.width = '34px';
+                    button.style.height = '34px';
+                    button.style.lineHeight = '34px';
+                    button.style.textAlign = 'center';
+                    button.style.fontWeight = 'bold';
+                    button.style.backgroundColor = 'white';
+                    button.style.display = 'flex';
+                    button.style.alignItems = 'center';
+                    button.style.justifyContent = 'center';
+                    
+                    L.DomEvent.on(button, 'click', (e) => {
+                        L.DomEvent.stopPropagation(e);
+                        L.DomEvent.preventDefault(e);
+                        this.locateUser(button);
+                    });
+                    
+                    return container;
+                }
+                
+                locateUser(button) {
+                    // Save original button content for resetting
+                    const originalContent = button.innerHTML;
+                    
+                    // Show loading spinner
+                    button.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"><span class="visually-hidden">Locating...</span></div>';
+                    
+                    if (navigator.geolocation) {
+                        navigator.geolocation.getCurrentPosition(
+                            (position) => {
+                                // Reset button
+                                button.innerHTML = originalContent;
+                                
+                                const lat = position.coords.latitude;
+                                const lng = position.coords.longitude;
+                                
+                                map.setView([lat, lng], 16);
+                                
+                                // Update marker
+                                if (marker) {
+                                    marker.setLatLng([lat, lng]);
+                                } else {
+                                    marker = L.marker([lat, lng]).addTo(map);
+                                }
+                                
+                                marker.bindPopup("Your Location").openPopup();
+                                
+                                // Update hidden fields
+                                document.getElementById("latitude").value = lat;
+                                document.getElementById("longitude").value = lng;
+                                
+                                // Get location details
+                                fetchLocationDetails(lat, lng);
+                            },
+                            (error) => {
+                                // Reset button
+                                button.innerHTML = originalContent;
+                                
+                                let errorMsg;
+                                switch (error.code) {
+                                    case error.PERMISSION_DENIED:
+                                        errorMsg = "Location access denied. Please enable location services in your browser settings.";
+                                        break;
+                                    case error.POSITION_UNAVAILABLE:
+                                        errorMsg = "Location information is unavailable. Please try again.";
+                                        break;
+                                    case error.TIMEOUT:
+                                        errorMsg = "Location request timed out. Please try again.";
+                                        break;
+                                    default:
+                                        errorMsg = "An unknown error occurred while getting your location.";
+                                }
+                                
+                                // Show error toast
+                                showToast(errorMsg, 'danger');
+                            },
+                            {
+                                enableHighAccuracy: true,
+                                timeout: 10000,
+                                maximumAge: 0
+                            }
+                        );
+                    } else {
+                        // Reset button
+                        button.innerHTML = originalContent;
+                        
+                        showToast("Geolocation is not supported by your browser.", 'danger');
+                    }
+                }
+            }
+            
+            // Add the locate control to the map
+            new LocateControl({ position: 'topright' }).addTo(map);
+            
+            // Handle map clicks to set location
+            map.on('click', function(e) {
+                const lat = e.latlng.lat;
+                const lng = e.latlng.lng;
+                
+                // Update hidden form fields
                 document.getElementById("latitude").value = lat;
                 document.getElementById("longitude").value = lng;
-    
-                // Fetch village & pincode using Nominatim API
-                fetchLocationDetails(lat, lng);
-            },
-            function (error) {
-                console.error("Geolocation error:", error.code, error.message);
-                switch (error.code) {
-                    case error.PERMISSION_DENIED:
-                        alert("Location access denied. Please enable location services.");
-                        break;
-                    case error.POSITION_UNAVAILABLE:
-                        alert("Location information is unavailable.");
-                        break;
-                    case error.TIMEOUT:
-                        alert("Location request timed out.");
-                        break;
-                    default:
-                        alert("An unknown error occurred.");
+                
+                // Update marker
+                if (marker) {
+                    map.removeLayer(marker);
                 }
-            },
-            {
-                enableHighAccuracy: true,
-                timeout: 10000, // 10 seconds timeout
-                maximumAge: 0
-            }
-        );
-    } else {
-        console.error("Geolocation not supported");
-        alert("Geolocation is not supported by your browser.");
-    }
-    
-    // Allow user to manually select a location by clicking on the map
-    map.on('click', function (e) {
-        console.log("Map clicked:", e.latlng.lat, e.latlng.lng);
-        var lat = e.latlng.lat;
-        var lng = e.latlng.lng;
-    
-        document.getElementById("latitude").value = lat;
-        document.getElementById("longitude").value = lng;
-    
-        // Remove old marker before adding new one
-        if (window.marker) {
-            map.removeLayer(window.marker);
-        }
-    
-        window.marker = L.marker([lat, lng]).addTo(map)
-            .bindPopup("Selected Location").openPopup();
-    
-        // Fetch village & pincode based on selected location
-        fetchLocationDetails(lat, lng);
-    });
-        
-    
-    // States, districts, blocks handling
-    const districtSelect = document.getElementById("districtSelect");
-    const blockSelect = document.getElementById("blockSelect");
-
-    // Fetch Maharashtra districts on page load
-    fetch(`/api/districts/9/`) // State ID for Maharashtra is 9
-        .then(response => response.json())
-        .then(districts => {
-            districtSelect.innerHTML = '<option value="">-- Select District --</option>';
-            districts.forEach(district => {
-                const option = document.createElement("option");
-                option.value = district.id;
-                option.textContent = district.display_name;
-                districtSelect.appendChild(option);
+                
+                marker = L.marker([lat, lng]).addTo(map)
+                    .bindPopup("Selected Location").openPopup();
+                
+                // Fetch location details
+                fetchLocationDetails(lat, lng);
             });
-            districtSelect.disabled = false;
-        })
-        .catch(error => {
-            console.error("Error fetching districts:", error);
-            alert("Failed to load districts. Please try again later.");
-        });
-
-    // Fetch blocks based on selected district
-    districtSelect.addEventListener("change", function () {
-        const districtId = this.value;
-        if (!districtId) {
-            blockSelect.innerHTML = '<option value="">-- Select Block --</option>';
-            blockSelect.disabled = true;
-            return;
-        }
-
-        blockSelect.innerHTML = '<option>Loading...</option>';
-        blockSelect.disabled = true;
-
-        fetch(`/api/blocks/${districtId}/`)
-            .then(response => response.json())
-            .then(blocks => {
-                blockSelect.innerHTML = '<option value="">-- Select Block --</option>';
-                blocks.forEach(block => {
-                    const option = document.createElement("option");
-                    option.value = block.id;
-                    option.textContent = block.display_name;
-                    blockSelect.appendChild(option);
-                });
-                blockSelect.disabled = false;
-            })
-            .catch(error => {
-                console.error("Error fetching blocks:", error);
-                alert("Failed to load blocks. Please try again later.");
-            });
-    });
-});
-document.addEventListener("DOMContentLoaded", function () {
-    const farmerForm = document.getElementById("farmerForm");
-    const messageDiv = document.getElementById("message");
-
-    // Handle form submission via AJAX
-    farmerForm.addEventListener("submit", async function (event) {
-        event.preventDefault(); // Prevent default form submission
-
-        // Show loading message and hide the form
-        const submitButton = document.getElementById("submitFarmerBtn");
-        submitButton.disabled = true; // Disable the submit button
-        farmerForm.style.display = "none"; // Hide the form
-        messageDiv.innerHTML = `
-            <div class="alert alert-info">
-                Uploading data, please wait...
-            </div>
-        `;
-
-        try {
-            // Gather form data
-            const formData = new FormData(farmerForm);
-
-            // Send AJAX request
-            const response = await fetch("{% url 'create_farmer' %}", {
-                method: "POST",
-                body: formData,
-                headers: { "X-Requested-With": "XMLHttpRequest" }
-            });
-
-            const data = await response.json();
-
-            if (data.success) {
-                // Success message
-                messageDiv.innerHTML = `
-                    <div class="alert alert-success mt-3">
-                        <p>✅ Farmer created successfully!</p>
-                    </div>
-                `;
-
-                // Redirect to the farm creation page after a short delay
-                setTimeout(() => {
-                    window.location.href = `/add_farm/${data.farmer_id}/`;
-                }, 1000); // Optional delay to show success message briefly
-            } else {
-                // Display error message
-                messageDiv.innerHTML = `
-                    <div class="alert alert-danger">
-                        Error: ${JSON.stringify(data.errors || "Unknown error")}
-                    </div>
-                `;
-                farmerForm.style.display = "block"; // Re-enable the form
-                submitButton.disabled = false; // Re-enable the submit button
+            
+            // Try to get user's location on page load
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+                        
+                        // Set map view
+                        map.setView([lat, lng], 14);
+                        
+                        // Add marker
+                        marker = L.marker([lat, lng]).addTo(map)
+                            .bindPopup("Your Location").openPopup();
+                        
+                        // Update hidden fields
+                        document.getElementById("latitude").value = lat;
+                        document.getElementById("longitude").value = lng;
+                        
+                        // Fetch location details
+                        fetchLocationDetails(lat, lng);
+                    },
+                    (error) => {
+                        console.error("Geolocation error:", error);
+                        // Don't show error - just silently fail and let user select location manually
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 0
+                    }
+                );
             }
         } catch (error) {
-            console.error("Error:", error);
-            messageDiv.innerHTML = `
-                <div class="alert alert-danger">
-                    An unexpected error occurred. Please try again.
-                </div>
-            `;
-            farmerForm.style.display = "block"; // Re-enable the form
-            submitButton.disabled = false; // Re-enable the submit button
+            console.error("Error initializing map:", error);
+            
+            // Show error message
+            const mapEl = document.getElementById('map');
+            if (mapEl) {
+                mapEl.innerHTML = `
+                    <div class="alert alert-danger m-3">
+                        <i data-lucide="alert-triangle" class="me-2"></i>
+                        Failed to load map. Please refresh the page and try again.
+                    </div>
+                `;
+                
+                // Initialize icons
+                if (typeof lucide !== 'undefined') {
+                    lucide.createIcons();
+                }
+            }
+            
+            // Hide loading indicator
+            if (mapLoadingIndicator) {
+                mapLoadingIndicator.style.display = "none";
+            }
+        }
+        
+        // Function to fetch location details from coordinates using Nominatim
+        function fetchLocationDetails(lat, lng) {
+            const nominatimURL = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`;
+            
+            // Show loading indicator for location data
+            showToast('Fetching location details...', 'info', true);
+            
+            fetch(nominatimURL)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log("Nominatim data:", data);
+                    
+                    // Remove loading toast
+                    removeAllToasts();
+                    
+                    if (data && data.address) {
+                        // Extract address components
+                        const village = data.address.village || data.address.town || data.address.hamlet || data.address.city_district || data.address.suburb || "";
+                        const district = data.address.county || data.address.state_district || data.address.city || "";
+                        const pincode = data.address.postcode || "";
+                        
+                        // Update form fields
+                        const villageField = document.getElementById("village");
+                        const districtField = document.getElementById("district");
+                        const pincodeField = document.getElementById("pincode");
+                        
+                        if (villageField) villageField.value = village;
+                        if (districtField) districtField.value = district;
+                        if (pincodeField) pincodeField.value = pincode;
+                        
+                        // Show success toast
+                        showToast('Location details found!', 'success');
+                    } else {
+                        // Show warning toast if details not found
+                        showToast('Could not find location details. Please enter manually.', 'warning');
+                    }
+                })
+                .catch(error => {
+                    console.error("Error fetching location details:", error);
+                    
+                    // Remove loading toast
+                    removeAllToasts();
+                    
+                    // Show error toast
+                    showToast('Failed to fetch location details. Please enter manually.', 'danger');
+                });
+        }
+        
+        // Toast notification helper functions
+        function showToast(message, type = 'info', isLoading = false) {
+            // Remove existing toasts with the same ID
+            removeAllToasts();
+            
+            const toast = document.createElement('div');
+            toast.id = 'location-toast';
+            toast.className = `alert alert-${type} position-fixed bottom-0 start-50 translate-middle-x mb-3`;
+            toast.style.zIndex = 1000;
+            toast.style.maxWidth = '90%';
+            toast.style.width = '400px';
+            
+            if (isLoading) {
+                toast.innerHTML = `<div class="d-flex align-items-center"><div class="spinner-border spinner-border-sm me-2" role="status"></div> ${message}</div>`;
+            } else {
+                let icon = 'info';
+                switch (type) {
+                    case 'success': icon = 'check-circle'; break;
+                    case 'danger': icon = 'alert-circle'; break;
+                    case 'warning': icon = 'alert-triangle'; break;
+                }
+                toast.innerHTML = `<i data-lucide="${icon}" class="me-2"></i> ${message}`;
+            }
+            
+            document.body.appendChild(toast);
+            
+            // Initialize icons
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+            
+            // Auto-remove non-loading toasts
+            if (!isLoading) {
+                setTimeout(() => {
+                    if (toast && toast.parentNode) {
+                        toast.remove();
+                    }
+                }, 4000);
+            }
+            
+            return toast;
+        }
+        
+        function removeAllToasts() {
+            const existingToast = document.getElementById('location-toast');
+            if (existingToast && existingToast.parentNode) {
+                existingToast.remove();
+            }
+        }
+        
+        // Form submission handler
+        const farmerForm = document.getElementById("farmerForm");
+        const messageDiv = document.getElementById("message");
+        
+        if (farmerForm && messageDiv) {
+            farmerForm.addEventListener("submit", async function(event) {
+                event.preventDefault();
+                
+                // Validate essential fields
+                const lat = document.getElementById("latitude").value;
+                const lng = document.getElementById("longitude").value;
+                
+                if (!lat || !lng) {
+                    messageDiv.innerHTML = `
+                        <div class="alert alert-warning">
+                            <i data-lucide="alert-triangle" class="me-2"></i>
+                            Please select a location on the map before submitting.
+                        </div>
+                    `;
+                    
+                    // Initialize icons
+                    if (typeof lucide !== 'undefined') {
+                        lucide.createIcons();
+                    }
+                    
+                    return;
+                }
+                
+                // Show loading message and disable submit button
+                const submitButton = document.getElementById("submitFarmerBtn");
+                submitButton.disabled = true;
+                submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Submitting...';
+                
+                messageDiv.innerHTML = `
+                    <div class="alert alert-info">
+                        <div class="d-flex align-items-center">
+                            <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                            Uploading data, please wait...
+                        </div>
+                    </div>
+                `;
+                
+                // Initialize icons in the message
+                if (typeof lucide !== 'undefined') {
+                    lucide.createIcons();
+                }
+                
+                try {
+                    // Gather form data
+                    const formData = new FormData(farmerForm);
+                    
+                    // Send AJAX request
+                    const response = await fetch(farmerForm.action || window.location.href, {
+                        method: "POST",
+                        body: formData,
+                        headers: { "X-Requested-With": "XMLHttpRequest" }
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        // Success message
+                        messageDiv.innerHTML = `
+                            <div class="alert alert-success">
+                                <i data-lucide="check-circle" class="me-2"></i>
+                                Farmer created successfully! Redirecting...
+                            </div>
+                        `;
+                        
+                        // Initialize icons
+                        if (typeof lucide !== 'undefined') {
+                            lucide.createIcons();
+                        }
+                        
+                        // Redirect to add farm page
+                        setTimeout(() => {
+                            window.location.href = `/add_farm/${data.farmer_id}/`;
+                        }, 1500);
+                    } else {
+                        // Format error message
+                        let errorText = "Unknown error occurred";
+                        
+                        if (typeof data.errors === 'object') {
+                            errorText = Object.entries(data.errors)
+                                .map(([field, errors]) => `<strong>${field}:</strong> ${errors.join(', ')}`)
+                                .join('<br>');
+                        } else if (data.errors) {
+                            errorText = data.errors;
+                        }
+                        
+                        messageDiv.innerHTML = `
+                            <div class="alert alert-danger">
+                                <i data-lucide="alert-circle" class="me-2"></i>
+                                <div>Error: ${errorText}</div>
+                            </div>
+                        `;
+                        
+                        // Initialize icons
+                        if (typeof lucide !== 'undefined') {
+                            lucide.createIcons();
+                        }
+                        
+                        // Reset submit button
+                        submitButton.disabled = false;
+                        submitButton.innerHTML = '<i data-lucide="save" class="me-2" size="18"></i><span>Submit Farmer</span>';
+                        
+                        // Initialize icons in button
+                        if (typeof lucide !== 'undefined') {
+                            lucide.createIcons();
+                        }
+                    }
+                } catch (error) {
+                    console.error("Error submitting form:", error);
+                    
+                    messageDiv.innerHTML = `
+                        <div class="alert alert-danger">
+                            <i data-lucide="alert-circle" class="me-2"></i>
+                            A network error occurred. Please check your connection and try again.
+                        </div>
+                    `;
+                    
+                    // Initialize icons
+                    if (typeof lucide !== 'undefined') {
+                        lucide.createIcons();
+                    }
+                    
+                    // Reset submit button
+                    submitButton.disabled = false;
+                    submitButton.innerHTML = '<i data-lucide="save" class="me-2" size="18"></i><span>Submit Farmer</span>';
+                    
+                    // Initialize icons in button
+                    if (typeof lucide !== 'undefined') {
+                        lucide.createIcons();
+                    }
+                }
+            });
         }
     });
-});
-</script>
+    </script>
 {% endblock %}
+    // Allow user to manually

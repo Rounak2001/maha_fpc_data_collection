@@ -1,137 +1,93 @@
 from django import forms
-from .models import Farmer
-import re
+from django.contrib.gis.geos import Point, Polygon
+from .models import Farmer, Farm
 
-from django import forms
-from django.contrib.auth.forms import UserCreationForm
-from django.contrib.auth.models import User
-from .models import UserProfile
-
-from django import forms
-from django.contrib.auth.forms import UserCreationForm
-from django.contrib.auth.models import User
-
-class CustomUserCreationForm(UserCreationForm):
-    email = forms.EmailField(required=True, label="Email")
-    full_name = forms.CharField(max_length=200, required=True, label="Full Name")
-    address = forms.CharField(widget=forms.Textarea, required=False, label="Address")
-    phone_number = forms.CharField(max_length=15, required=False, label="Phone Number")
-
-    class Meta:
-        model = User
-        fields = ("username", "email", "password1", "password2", "full_name", "address", "phone_number")
-    def save(self, commit=True):
-        user = super().save(commit=False)
-        if commit:
-            user.save()
-            UserProfile.objects.update_or_create(
-                user=user,
-                defaults={
-                    "full_name": self.cleaned_data["full_name"],
-                    "address": self.cleaned_data["address"],
-                    "phone_number": self.cleaned_data["phone_number"],
-                },
-            )
-        return user
-    
 class FarmerForm(forms.ModelForm):
+    # Regular form fields matching the model fields
+    latitude = forms.FloatField(widget=forms.HiddenInput())
+    longitude = forms.FloatField(widget=forms.HiddenInput())
+    
     class Meta:
         model = Farmer
-        fields = [ 'first_name', 'last_name', 'mobile_number', 'gender', 
-                  'guardian_name', 'village', 'pincode', 'farmer_consent']  # ✅ Removed `geo_tag`
+        fields = [
+            'first_name', 'last_name', 'mobile_number', 'gender',
+            'district', 'village', 'pincode'
+        ]
         widgets = {
-            'gender': forms.Select(choices=[('Male', 'Male'), ('Female', 'Female'), ('Other', 'Other')]),
-            # 'farmer_consent': forms.CheckboxInput(),
+            
+            'gender': forms.Select(attrs={'class': 'form-select'}),
+            
         }
-
-
+    
     def clean_mobile_number(self):
-        mobile_number = self.cleaned_data.get("mobile_number")
-        if not re.fullmatch(r"\d{10}", mobile_number):  # ✅ Ensures exactly 10 digits
-            raise forms.ValidationError("Mobile number must be a 10-digit integer.")
-        return mobile_number
+        """Validate mobile number format"""
+        mobile = self.cleaned_data.get('mobile_number')
+        if mobile and not mobile.isdigit():
+            raise forms.ValidationError("Mobile number should contain only digits")
+        if mobile and len(mobile) != 10:
+            raise forms.ValidationError("Mobile number should be 10 digits")
+        return mobile
 
-    def clean_pincode(self):
-        pincode = self.cleaned_data.get("pincode")
-        if not re.fullmatch(r"\d{6}", pincode):  # ✅ Ensures exactly 6 digits
-            raise forms.ValidationError("Pincode must be a 6-digit integer.")
-        return pincode
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        
+        # Create a point from the latitude and longitude
+        lat = self.cleaned_data.get('latitude')
+        lon = self.cleaned_data.get('longitude')
+        if lat and lon:
+            instance.geo_tag = Point(lon, lat)
+        
+        if commit:
+            instance.save()
+        return instance
 
-from .models import Farm
+from .models import Farm, Crop
 
 class FarmForm(forms.ModelForm):
     class Meta:
         model = Farm
-        exclude = ['boundary','farmer']  # Exclude boundary since it's handled via map drawing
+        fields = ['area_in_acres']
         widgets = {
-            'ownership': forms.Select(choices=[('OWNED', 'Owned'), ('LEASED', 'Leased')]),
-            'boundary_method': forms.Select(choices=[('Drawing', 'Drawing'), ('Tapping', 'Tapping')]),
-            'owner_mobile_number': forms.TextInput(attrs={"class": "form-control", "placeholder": "Enter Owner Mobile Number"}),
-            'owner_full_name': forms.TextInput(attrs={"class": "form-control", "placeholder": "Enter Owner Full Name"}),
-            'landlord_declaration': forms.ClearableFileInput(attrs={"accept": "image/*", "capture": "environment"}),
-            'land_ownership': forms.ClearableFileInput(attrs={"accept": "image/*", "capture": "environment"}),
+            'sowing_date': forms.DateInput(attrs={'type': 'date'}),
         }
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # Initially hide fields for leased farms
-        if 'ownership' in self.initial and self.initial['ownership'] == 'LEASED':
-            self.fields['owner_mobile_number'].required = True
-            self.fields['owner_full_name'].required = True
-            self.fields['landlord_declaration'].required = True
-        else:
-            self.fields['owner_mobile_number'].required = False
-            self.fields['owner_full_name'].required = False
-            self.fields['landlord_declaration'].required = False
-
-from django import forms
-from .models import Plantation
-
-class PlantationForm(forms.ModelForm):
-    class Meta:
-        model = Plantation
-        exclude = ["boundary"]  # We will handle boundary using Leaflet map
-        fields = ['kyari_name', 'area_in_acres','plantation_year', 'boundary']
-
-
-from django import forms
-from .models import Specie
-
-class SpecieForm(forms.ModelForm):
-    class Meta:
-        model = Specie
-        exclude = ["plantation"] 
-        fields = "__all__"
-        widgets = {
-            'plantation_date': forms.DateInput(attrs={'type': 'date'}),
-        }
-
-
-
-from django import forms
-from .models import FarmerMedia
-
-class FarmerMediaForm(forms.ModelForm):
-    class Meta:
-        model = FarmerMedia
-        fields = [
-            'picture',
-            'photo_of_english_epic',
-            'photo_of_regional_language_epic',
-            'id_type',
-            'id_number',
-            'id_proof',
-            'id_expiry_date',
+    
+    def clean_area_in_acres(self):
+        """Validate that area is positive"""
+        area = self.cleaned_data.get('area_in_acres')
+        if area and area <= 0:
+            raise forms.ValidationError("Area must be greater than zero")
+        return area
+    
+    def save(self, commit=True):
+        instance = super().save(commit=False)
         
-            'digital_signature'
-        ]
+        # Process boundary coordinates from the form data
+        boundary_data = self.cleaned_data.get('boundary_coordinates')
+        if boundary_data:
+            try:
+                # Parse the boundary data (assuming it's a JSON string of coordinate pairs)
+                import json
+                coordinates = json.loads(boundary_data)
+                
+                # Create a polygon from the coordinates
+                # Format should be [[[lon1, lat1], [lon2, lat2], ..., [lon1, lat1]]]
+                # Note: The first and last point must be the same to close the polygon
+                if coordinates and coordinates[0] != coordinates[-1]:
+                    coordinates.append(coordinates[0])  # Close the polygon if needed
+                
+                instance.boundary = Polygon(coordinates)
+            except Exception as e:
+                # Log the error but continue with saving
+                print(f"Error processing boundary: {e}")
+        
+        if commit:
+            instance.save()
+        return instance
+    
+class CropForm(forms.ModelForm):
+    class Meta:
+        model = Crop
+        fields = ['crop_name', 'number_of_plants', 'area_in_acres','sowing_date']
         widgets = {
-            'picture': forms.ClearableFileInput(attrs={"accept": "image/*", "capture": "environment"}),
-            'photo_of_english_epic': forms.ClearableFileInput(attrs={"accept": "application/pdf"}),
-            'photo_of_regional_language_epic': forms.ClearableFileInput(attrs={"accept": "application/pdf"}),
-            'id_type': forms.Select(attrs={"class": "form-control"}),
-            'id_number': forms.TextInput(attrs={"class": "form-control", "placeholder": "Enter ID Number"}),
-            'id_proof': forms.ClearableFileInput(attrs={"accept": "application/pdf"}),
-            
-            'digital_signature': forms.HiddenInput(),  # Hidden input for base64 signature
+            'sowing_date': forms.DateInput(attrs={'type': 'date'}),
         }

@@ -2,114 +2,502 @@
 {% load static %}
 {% block content %}
 
-<div class="container-fluid">
+<div class="container-fluid mt-3">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2 class="mb-3">
+                <i data-lucide="layout-dashboard" class="text-primary me-2" size="24"></i>
+                Farmer Management Dashboard
+            </h2>
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="card bg-primary text-white mb-3">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i data-lucide="users" class="me-2" size="18"></i>
+                                Total Farmers
+                            </h5>
+                            <p class="card-text display-4">{{ farmer_count }}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card bg-success text-white mb-3">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i data-lucide="map" class="me-2" size="18"></i>
+                                Total Farms
+                            </h5>
+                            <p class="card-text display-4">{{ farm_count }}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card bg-info text-white mb-3">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i data-lucide="ruler" class="me-2" size="18"></i>
+                                Total Area
+                            </h5>
+                            <p class="card-text display-4">{{ total_area }} <small>acres</small></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="row">
         <!-- Sidebar: Farmer List & Search -->
-        <div class="col-md-3 p-3 bg-light">
-            <h4>Search Farmers</h4>
-            <input type="text" id="search" class="form-control mb-3" placeholder="Search by name..." oninput="fetchFarmers()">
+        <div class="col-md-3 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">
+                        <i data-lucide="search" class="me-2" size="18"></i>
+                        Search Farmers
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="input-group mb-3">
+                        <span class="input-group-text">
+                            <i data-lucide="search" size="16"></i>
+                        </span>
+                        <input type="text" id="search" class="form-control" placeholder="Search by name or mobile..." oninput="fetchFarmers()">
+                    </div>
 
-            <h5>Farmer List</h5>
-            <ul id="farmerList" class="list-group"></ul>
+                    <div class="mb-3">
+                        <h6 class="border-bottom pb-2">
+                            <i data-lucide="list" class="me-2" size="16"></i>
+                            Farmer List
+                        </h6>
+                        <div id="farmerListContainer" style="max-height: 300px; overflow-y: auto;">
+                            <ul id="farmerList" class="list-group">
+                                <li class="list-group-item text-center">
+                                    <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                    Loading farmers...
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
 
-            <div id="farmerDetails" class="mt-3"></div>
+                    <div id="farmerDetails" class="mt-3 border-top pt-3" style="display: none;">
+                        <!-- Farmer details will be populated here -->
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Map Section -->
         <div class="col-md-9">
-            <h2>Farmer Dashboard</h2>
-            <div id="map" style="height: 500px;"></div>
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">
+                        <i data-lucide="map" class="me-2" size="18"></i>
+                        Farms Map
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    <div id="map" style="height: 600px; border-radius: 0 0 12px 12px;"></div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
 
-<!-- Leaflet & JavaScript -->
+<!-- Leaflet CSS/JS -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
 
 <script>
 document.addEventListener("DOMContentLoaded", function() {
-    var map = L.map('map').setView([23.6157, 81.9195], 6);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
+    // Initialize icons
+    if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+    }
+    
+    // Initialize map with Google Hybrid layer
+    var map = L.map('map').setView([20.5937, 78.9629], 5);
+    
+    // Base layers
+    var streets = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors',
+        maxZoom: 22
+    });
+    
+    var satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution: '&copy; Esri, Maxar, Earthstar Geographics',
+        maxZoom: 22
+    });
+    
+    // Google Maps layers
+    var googleHybrid = L.tileLayer('https://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', {
+        subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+        attribution: '&copy; Google Maps',
+        maxZoom: 22
+    }).addTo(map);
+    
+    // Layer control
+    var baseMaps = {
+        "Google Hybrid": googleHybrid,
+        "OpenStreetMap": streets,
+        "Satellite": satellite
+    };
+    
+    L.control.layers(baseMaps).addTo(map);
+    
+    // Feature groups for map elements
     var markersLayer = new L.LayerGroup().addTo(map);
-    var polygonsLayer = new L.LayerGroup().addTo(map);
-
-    function fetchFarmers(searchQuery = "") {
-        fetch(`/dashboard-farmers/?search=${searchQuery}`)
+    var farmsLayer = new L.LayerGroup().addTo(map);
+    var plantationsLayer = new L.LayerGroup().addTo(map);
+    
+    // Global variables to track state
+    var selectedFarmerId = null;
+    
+    // Function to fetch farmers with optional search
+    window.fetchFarmers = function(searchQuery = "") {
+        const searchInput = document.getElementById("search");
+        if (searchQuery === "" && searchInput) {
+            searchQuery = searchInput.value;
+        }
+        
+        document.getElementById("farmerList").innerHTML = `
+            <li class="list-group-item text-center">
+                <div class="spinner-border spinner-border-sm text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                Searching...
+            </li>
+        `;
+        
+        fetch(`/dashboard-farmers/?search=${encodeURIComponent(searchQuery)}`)
         .then(response => response.json())
         .then(data => {
             let farmerList = document.getElementById("farmerList");
+            
+            if (data.farmers.length === 0) {
+                farmerList.innerHTML = `
+                    <li class="list-group-item text-center text-muted">
+                        <i data-lucide="search-x" class="me-2" size="16"></i>
+                        No farmers found
+                    </li>
+                `;
+                
+                // Initialize icons in the no results message
+                if (typeof lucide !== 'undefined') {
+                    lucide.createIcons();
+                }
+                return;
+            }
+            
             farmerList.innerHTML = "";
-
+            
             data.farmers.forEach(farmer => {
                 let listItem = document.createElement("li");
                 listItem.className = "list-group-item farmer-item";
-                listItem.innerHTML = `<b>${farmer.name}</b> <br> ${farmer.village} <br> ${farmer.mobile}`;
-                listItem.onclick = () => loadFarmerOnMap(farmer.id);
+                
+                // If this is the selected farmer, highlight it
+                if (selectedFarmerId === farmer.id) {
+                    listItem.classList.add("active");
+                }
+                
+                listItem.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <b>${farmer.name}</b> 
+                            <div class="text-muted small">${farmer.village}</div>
+                            <div class="small">${farmer.mobile}</div>
+                        </div>
+                        <button class="btn btn-sm btn-outline-primary view-on-map" title="View on Map">
+                            <i data-lucide="map-pin" size="14"></i>
+                        </button>
+                    </div>
+                `;
+                
+                listItem.querySelector('.view-on-map').addEventListener('click', function(e) {
+                    e.stopPropagation(); // Prevent the parent click event
+                    selectedFarmerId = farmer.id;
+                    loadFarmerOnMap(farmer.id);
+                    
+                    // Update active class on list items
+                    document.querySelectorAll('#farmerList .farmer-item').forEach(item => {
+                        item.classList.remove('active');
+                    });
+                    listItem.classList.add('active');
+                });
+                
+                // Also make the entire item clickable
+                listItem.addEventListener('click', function() {
+                    selectedFarmerId = farmer.id;
+                    loadFarmerOnMap(farmer.id);
+                    
+                    // Update active class on list items
+                    document.querySelectorAll('#farmerList .farmer-item').forEach(item => {
+                        item.classList.remove('active');
+                    });
+                    listItem.classList.add('active');
+                });
+                
                 farmerList.appendChild(listItem);
             });
+            
+            // Initialize icons in the newly added list items
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+        })
+        .catch(error => {
+            console.error("Error fetching farmers:", error);
+            document.getElementById("farmerList").innerHTML = `
+                <li class="list-group-item text-center text-danger">
+                    <i data-lucide="alert-triangle" class="me-2" size="16"></i>
+                    Error loading farmers
+                </li>
+            `;
+            
+            // Initialize icons in the error message
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
         });
-    }
-
-    function loadFarmerOnMap(farmerId) {
-        fetch(`/dashboard-data/${farmerId}/`)
-        .then(response => response.json())
-        .then(data => {
-            markersLayer.clearLayers();
-            polygonsLayer.clearLayers();
-            console.log("✅ API Response:", data);
+    };
     
+    // Function to load farmer data on the map
+    function loadFarmerOnMap(farmerId) {
+        // Show loading state
+        document.getElementById("farmerDetails").innerHTML = `
+            <div class="text-center p-3">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2">Loading farmer details...</p>
+            </div>
+        `;
+        document.getElementById("farmerDetails").style.display = "block";
+        
+        // Clear existing layers
+        markersLayer.clearLayers();
+        farmsLayer.clearLayers();
+        plantationsLayer.clearLayers();
+        
+        fetch(`/dashboard-data/${farmerId}/`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Error: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log("Farmer data:", data);
+            
             let farmer = data.farmer;
             let farms = data.farms;
             let plantations = data.plantations;
             let species = data.species;
-    
-            if (farmer) {
-                let farmerMarker = L.marker(farmer.geo_tag.coordinates.reverse()).addTo(markersLayer);
+            
+            // Add farmer location marker
+            if (farmer && farmer.geo_tag && farmer.geo_tag.coordinates) {
+                // Assuming coordinates are in [longitude, latitude] format
+                let coords = [farmer.geo_tag.coordinates[1], farmer.geo_tag.coordinates[0]];
+                
+                let farmerMarker = L.marker(coords, {
+                    icon: L.divIcon({
+                        className: 'farmer-marker',
+                        html: `<div class="marker-icon" style="background-color: #FF5733; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white;"></div>`,
+                        iconSize: [16, 16],
+                        iconAnchor: [8, 8]
+                    })
+                }).addTo(markersLayer);
+                
                 farmerMarker.bindPopup(`
-                    <b>Name:</b> ${farmer.name}<br>
-                    <b>Aadhar:</b> ${farmer.aadhar}<br>
-                    <b>Village:</b> ${farmer.village}<br>
-                    <b>Mobile:</b> ${farmer.mobile}
-                `).openPopup();
-                map.setView(farmer.geo_tag.coordinates, 14);
+                    <div class="popup-content">
+                        <h6>${farmer.name}</h6>
+                        <div><b>Village:</b> ${farmer.village}</div>
+                        <div><b>District:</b> ${farmer.district}</div>
+                        <div><b>Mobile:</b> ${farmer.mobile}</div>
+                    </div>
+                `);
+                
+                // Center map on farmer location
+                map.setView(coords, 14);
             }
-    
-            farms.forEach(farm => {
-                let farmPolygon = L.polygon(farm.boundary.coordinates, { color: "blue", fillOpacity: 0.3 }).addTo(polygonsLayer);
-                farmPolygon.bindPopup(`<b>Farm:</b> ${farm.farm_name} <br> <b>Area:</b> ${farm.area} acres`);
-            });
-    
-            plantations.forEach(plantation => {
-                let plantationPolygon = L.polygon(plantation.boundary.coordinates, { color: "green", fillOpacity: 0.3 }).addTo(polygonsLayer);
-                plantationPolygon.bindPopup(`<b>Kyari:</b> ${plantation.kyari_name} <br> <b>Saplings:</b> ${plantation.number_of_saplings}`);
-            });
-    
+            
+            // Add farm polygons
+            if (farms && farms.length > 0) {
+                farms.forEach((farm, index) => {
+                    if (farm.boundary && farm.boundary.coordinates) {
+                        let farmColor = getColorByIndex(index);
+                        
+                        let farmPolygon = L.polygon(farm.boundary.coordinates, {
+                            color: farmColor,
+                            fillColor: farmColor,
+                            fillOpacity: 0.3,
+                            weight: 2
+                        }).addTo(farmsLayer);
+                        
+                        farmPolygon.bindPopup(`
+                            <div class="popup-content">
+                                <h6>${farm.farm_name || 'Farm ' + (index + 1)}</h6>
+                                <div><b>Area:</b> ${farm.area} acres</div>
+                            </div>
+                        `);
+                    }
+                });
+                
+                // If we have farms but no farmer location, fit bounds to farms
+                if (!farmer.geo_tag && farms.length > 0) {
+                    let bounds = farmsLayer.getBounds();
+                    if (bounds.isValid()) {
+                        map.fitBounds(bounds, { padding: [50, 50] });
+                    }
+                }
+            }
+            
+            // Update farmer details sidebar
             let farmerDetails = document.getElementById("farmerDetails");
-            // ✅ Check if image exists
-            let imageHtml = farmer.image_url ? 
-            `<img src="${farmer.image_url}" alt="Farmer Image" class="img-fluid rounded mt-2" style="max-width: 200px;">` 
-            : `<p>No Image Available</p>`;
-
-            // ✅ Update farmer details in sidebar
-            farmerDetails.innerHTML = `<h5>Farmer Details</h5>
-            ${imageHtml}
-            <p><b>Name:</b> ${farmer.name}</p>
-            <p><b>Village:</b> ${farmer.village}</p>
-            <p><b>Mobile:</b> ${farmer.mobile}</p>
-            <h6>Plantation Species:</h6>
-            <ul>${species.map(s => `<li>${s.specie_name} (${s.number_of_plants} plants)</li>`).join("")}</ul>`;
+            farmerDetails.innerHTML = `
+                <h5 class="mb-3">${farmer.name}</h5>
+                
+                <div class="mb-3">
+                    <div class="d-flex align-items-center mb-1">
+                        <i data-lucide="map-pin" class="me-2 text-primary" size="16"></i>
+                        <b>Location:</b>
+                    </div>
+                    <div class="ms-4">
+                        ${farmer.village}, ${farmer.district}
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <div class="d-flex align-items-center mb-1">
+                        <i data-lucide="phone" class="me-2 text-primary" size="16"></i>
+                        <b>Contact:</b>
+                    </div>
+                    <div class="ms-4">
+                        ${farmer.mobile}
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <div class="d-flex align-items-center mb-1">
+                        <i data-lucide="user" class="me-2 text-primary" size="16"></i>
+                        <b>Gender:</b>
+                    </div>
+                    <div class="ms-4">
+                        ${farmer.gender}
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <div class="mb-3">
+                    <div class="d-flex align-items-center mb-2">
+                        <i data-lucide="map" class="me-2 text-primary" size="16"></i>
+                        <b>Farms:</b> ${farms.length}
+                    </div>
+                    <div class="ms-4">
+                        ${farms.map((farm, index) => 
+                            `<div class="mb-1">
+                                <span class="badge" style="background-color: ${getColorByIndex(index)};">&nbsp;</span>
+                                ${farm.farm_name || 'Farm ' + (index + 1)} - ${farm.area} acres
+                            </div>`
+                        ).join('')}
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <div>
+                    <div class="d-flex align-items-center mb-2">
+                        <i data-lucide="leaf" class="me-2 text-primary" size="16"></i>
+                        <b>Crops:</b>
+                    </div>
+                    <div class="ms-4">
+                        ${species.length > 0 
+                            ? species.map(s => 
+                                `<div class="mb-1">
+                                    ${s.specie_name} (${s.number_of_plants} plants)
+                                </div>`
+                            ).join('') 
+                            : '<div class="text-muted">No crops recorded</div>'
+                        }
+                    </div>
+                </div>
+                
+                <div class="mt-3 text-center">
+                    <a href="/add-farm/${farmer.id}/" class="btn btn-primary btn-sm">
+                        <i data-lucide="plus" class="me-1" size="14"></i>
+                        Add Farm
+                    </a>
+                </div>
+            `;
+            
+            // Initialize icons in the details
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+        })
+        .catch(error => {
+            console.error("Error loading farmer data:", error);
+            
+            let farmerDetails = document.getElementById("farmerDetails");
+            farmerDetails.innerHTML = `
+                <div class="alert alert-danger">
+                    <i data-lucide="alert-triangle" class="me-2" size="16"></i>
+                    Error loading farmer data. Please try again.
+                </div>
+            `;
+            
+            // Initialize icons in the error message
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
         });
     }
     
-
+    // Helper function to get color based on index
+    function getColorByIndex(index) {
+        const colors = [
+            '#FF5733', '#33FF57', '#3357FF', '#F3FF33', 
+            '#FF33F3', '#33FFF3', '#FF8C33', '#8C33FF'
+        ];
+        return colors[index % colors.length];
+    }
+    
+    // Initialize by loading the farmers list
+    fetchFarmers();
+    
+    // Add event listener for search input
     document.getElementById("search").addEventListener("input", function() {
         fetchFarmers(this.value);
     });
-
-    fetchFarmers();
 });
 </script>
 
+<style>
+.farmer-item {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.farmer-item:hover {
+    background-color: #f8f9fa;
+}
+
+.farmer-item.active {
+    background-color: #e9f7f2;
+    border-left: 3px solid var(--primary-color, #28a745);
+}
+
+.popup-content {
+    padding: 0.5rem;
+}
+
+.popup-content h6 {
+    margin-bottom: 0.5rem;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 0.3rem;
+}
+</style>
 {% endblock %}

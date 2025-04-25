@@ -11,7 +11,7 @@
             </h2>
             <div class="row">
                 <div class="col-md-4">
-                    <div class="card bg-primary text-white mb-3">
+                    <div class="card bg-success text-white mb-3">
                         <div class="card-body">
                             <h5 class="card-title">
                                 <i data-lucide="users" class="me-2" size="18"></i>
@@ -33,7 +33,7 @@
                     </div>
                 </div>
                 <div class="col-md-4">
-                    <div class="card bg-info text-white mb-3">
+                    <div class="card bg-success text-white mb-3">
                         <div class="card-body">
                             <h5 class="card-title">
                                 <i data-lucide="ruler" class="me-2" size="18"></i>
@@ -301,14 +301,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 // Assuming coordinates are in [longitude, latitude] format
                 let coords = [farmer.geo_tag.coordinates[1], farmer.geo_tag.coordinates[0]];
                 
-                let farmerMarker = L.marker(coords, {
-                    icon: L.divIcon({
-                        className: 'farmer-marker',
-                        html: `<div class="marker-icon" style="background-color: #FF5733; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white;"></div>`,
-                        iconSize: [16, 16],
-                        iconAnchor: [8, 8]
-                    })
-                }).addTo(markersLayer);
+                let farmerMarker = L.marker(coords).addTo(markersLayer);
                 
                 farmerMarker.bindPopup(`
                     <div class="popup-content">
